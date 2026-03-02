@@ -14,5 +14,9 @@ export class GameController {
       moveDto.y,
     );
   }
-  
+  @Post('create')
+  create() {
+    return { gameId: this.gameService.createGame() };
+  }
+    
 }

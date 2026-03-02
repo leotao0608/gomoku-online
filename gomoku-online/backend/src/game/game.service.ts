@@ -23,60 +23,7 @@ class chessBoard{
     ifValid(x: number, y: number): boolean{
         return (this.board[x][y]==0)?true:false;
     }
-    // takeInput(): [number, number]{
-    //     let input_x: number, input_y: number;
-	// 	while(1){
-	// 		cout<<"Input x value: ";
-	// 		cin>>input_x;
-	// 		cout<<"Input y value: ";
-	// 		cin>>input_y;
-	// 		if(checkBoundary(input_x, input_y) && ifValid(input_x, input_y)){
-	// 			break;
-	// 		}else{
-	// 			cout<<"Invalid move, out of bound or position occupied"<<endl;
-	// 		}
-	// 	}
-	// 	return [input_x, input_y];
-    // }
-
-    // printBoard(): void{
-    //     //print number row
-	// 	cout<<"    ";
-	// 	for(int i=0;i<size;i++){
-	// 		if(i<=8)cout<<i<<"  ";
-	// 		else cout<<i<<" ";
-	// 	}
-	// 	cout<<'y'<<endl;
-	// 	for(int i=0;i<size;i++){
-	// 		if(i<=9) cout<<" "<<i<<"  ";
-	// 		else cout<<i<<"  ";
-	// 		for(int j=0;j<size;j++){
-	// 			if(board[i][j]==0){		//none
-	// 				cout<<'.';
-	// 			}else if(board[i][j]==1){	//black
-	// 				cout<<'X';
-	// 			}else if(board[i][j]==-1){	//white
-	// 				cout<<'O';
-	// 			}
-	// 			cout<<"  ";
-	// 		}
-	// 		cout<<endl;
-	// 	}
-	// 	cout<<'x'<<endl;
-    // }
-
-    // void printWinningMessage(int player){
-	// 	clearScreen();
-	// 	printBoard();
-	// 	string winning_player=(player==1)?"black":"white";
-	// 	cout<<endl<<winning_player<<" wins!"<<endl;
-	// 	exit(0);
-	// }
     switchPlayer(): void{this.current_player *= -1;}
-    // void printParameters(){
-	// 	cout<<endl;
-	// 	cout<<"current player: "<<((current_player==1)?"black":"white")<<endl;
-	// }
     placeAMove(x: number, y: number): boolean{
 		if(!this.checkBoundary(x, y)){
 			//cout<<endl<<"error: placeAMove, out of bound"<<endl;
@@ -529,114 +476,57 @@ function AIBestMove(board: Array<Array<number>>, current_player: number, search_
 export class GameService {
   private games: Map<string, [chessBoard, number]> = new Map(); 
 
-  // 创建游戏
   createGame(): string {
     const gameId = Math.random().toString(36).substring(2, 8);
     this.games.set(gameId, [new chessBoard(15, 1), 0]); // 15x15, black goes first, steps = 0
     return gameId;
   }
 
-  // 玩家落子
   handleMove(gameId: string, x: number, y: number) {
     const game = this.games.get(gameId);
-    if (!game) return { "error": 'Game not found' };
+    if (!game) return { error: 'Game not found' };
 
     if (!game[0].placeAMove(x, y)) {
-      return { "error": 'Invalid move' };
+      return { error: 'Invalid move' };
     }
-	game[1] ++;
-	
-    const status = game[0].checkStatus(x, y);
+    
+    let status = game[0].checkStatus(x, y);
+    if (status !== 0) {
+      return { board: game[0].getBoard(), status, message: 'Player wins!' };
+    }
+    
+    game[0].switchPlayer();
+    game[1]++;
 
     if (game[0].current_player === -1) {
-		game[1]++;
-		if(game[1] === 2){
-			let dx: number = Math.random() < 0.5 ? 1 : -1; 
-			let dy: number = Math.random() < 0.5 ? 1 : -1; 
-			while(x-dx < 0 || y - dy < 0 || x + dx > 14 || y + dy > 14){ 
-				dx = Math.random() < 0.5 ? 1 : -1; 
-				dy = Math.random() < 0.5 ? 1 : -1; 
-			} 
-			game[0].placeAMove(x + dx, y + dy);
-		}else{
-			const aiMove = AIBestMove(game[0].getBoard(), game[0].current_player, 4);//search depth 4
-			if (aiMove[0] !== -1) {
-				game[0].placeAMove(aiMove[0], aiMove[1]);
-			}
-		}
-		
+      let aiMove: [number, number];
+      
+      if (game[1] === 1) {
+        let dx: number = Math.random() < 0.5 ? 1 : -1;
+        let dy: number = Math.random() < 0.5 ? 1 : -1;
+        while (x - dx < 0 || y - dy < 0 || x + dx > 14 || y + dy > 14) {
+          dx = Math.random() < 0.5 ? 1 : -1;
+          dy = Math.random() < 0.5 ? 1 : -1;
+        }
+        aiMove = [x + dx, y + dy];
+      } else {
+        aiMove = AIBestMove(game[0].getBoard(), game[0].current_player, 3);
+      }
+      
+      if (aiMove[0] !== -1 && aiMove[1] !== -1) {
+        if (!game[0].placeAMove(aiMove[0], aiMove[1])) {
+          return { error: 'AI move invalid' };
+        }
+        
+        status = game[0].checkStatus(aiMove[0], aiMove[1]);
+        if (status !== 0) {
+          return { board: game[0].getBoard(), status, message: 'AI wins!' };
+        }
+      }
+      
+      game[0].switchPlayer();
     }
-    game[0].switchPlayer();
-    return { board: game[0].getBoard(), status };
+
+    return { board: game[0].getBoard(), status: status || 0 };
   }
 }
-
-
-
-
-
-// function startGame(): number{
-// 	balence_coefficient = 1.1;	//smaller than 1, more offensive tendency; Larger than 1, more defensice tendency; default value: 1
-// 	const board_size: number = 15;
-// 	const search_depth: number = 4;  // Search depth, adjustable based on performance; default value: 3
-// 	let current_player: number = 1;      // 1: black(X), -1: white(O)
-// 	let board = new chessBoard(board_size, current_player);
-// 	// cout<<"=== Gomoku AI (MinMax + Alpha-Beta Pruning) ==="<<endl;
-// 	// cout<<"Player: X (Black), AI: O (White)"<<endl;
-// 	// cout<<"Search Depth: "<<search_depth<<endl<<endl;
-// 	//board.printBoard();
-// 	let input:[number, number] = [7, 7];
-// 	let input_x: number = input[0],
-//         input_y: number = input[1];
-// 	let steps: number = 0;
-// 	while(1){
-// 		steps++;
-// 		if(board.current_player == 1){  // Player's turn
-// 			//cout<<endl<<" --- Player's Turn ---"<<endl;
-// 			//input = board.takeInput();
-//             //read input
-// 			input_x = input[0];
-// 			input_y = input[1];
-// 			// if(!board.placeAMove(input_x, input_y)){
-// 			// 	this_thread::sleep_for(chrono::milliseconds(1000));
-// 			// 	board.clearScreen();
-// 			// 	board.printBoard();
-// 			// 	continue;
-// 			// }
-// 			if(!board.checkStatus(input_x, input_y)){
-// 				break;
-// 			}
-// 		}else{  // AI's turn
-// 			//cout<<endl<<"=== AI's Turn ==="<<endl;
-// 			if(steps==2){
-//                 const randomInt = () => Math.floor(Math.random() * 3) - 1;
-//                 let x = randomInt();
-//                 let y = randomInt();
-//                 while (x === 0 && y === 0) {
-//                     y = randomInt();
-//                 }
-//                 board.placeAMove(input_x + x, input_y + y);
-// 			}else{
-// 				const startTime = Date.now();
-//                 const aiMove = AIBestMove(board.getBoard(), board.current_player, search_depth);
-//                 const endTime = Date.now();
-//                 const duration = endTime - startTime;
-//                 if (aiMove[0] === -1) {
-//                     //console.log("No valid moves available!");
-//                     break;
-//                 }
-//                 board.placeAMove(aiMove[0], aiMove[1]);
-//                 // console.log(`AI move: (${aiMove[0]}, ${aiMove[1]})`);
-//                 // console.log(`Thinking time: ${duration}ms`);
-//                 if (!board.checkStatus(aiMove[0], aiMove[1])) {
-//                     break;
-//                 }
-// 			}
-// 		}
-// 		// board.clearScreen();
-// 		// board.printBoard();
-// 		// board.printParameters();
-// 		board.switchPlayer();
-// 	}
-// 	return 0;
-// }
