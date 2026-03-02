@@ -89,14 +89,14 @@ class chessBoard{
 		this.board[x][y] = this.current_player;
 		return true;
 	}
-    checkStatus(x: number, y: number): boolean{
+    checkStatus(x: number, y: number): number{
 		if(!this.checkBoundary(x, y)){
 			//cout<<endl<<"error: checkStatus, out of bound"<<endl;
-			return false;
+			return 0;
 		}
 		if(this.board[x][y] != this.current_player){
 			//cout<<endl<<"error: checkStatus, players don't match"<<endl;
-			return false;
+			return 0;
 		}
 		for(let dir: number = 0; dir < 4; dir++){
 			let count: number = 1;
@@ -121,10 +121,10 @@ class chessBoard{
 			}
 			if(count>=5){
 				//this.printWinningMessage(this.current_player);
-				return false;
+				return this.current_player;		//someone wins
 			}
 		}
-		return true;							//no one wins
+		return 0;							//no one wins
 	}
     //void clearScreen(){system("cls");}
 	getBoard(): Array<Array<number>>{
@@ -524,91 +524,119 @@ function AIBestMove(board: Array<Array<number>>, current_player: number, search_
 	//cout<<"AI best move score: "<<best_score<<endl;
 	return best_move;
 }
-function main(): number{
-	balence_coefficient = 1.1;	//smaller than 1, more offensive tendency; Larger than 1, more defensice tendency; default value: 1
-	const board_size: number = 15;
-	const search_depth: number = 4;  // Search depth, adjustable based on performance; default value: 3
-	let current_player: number = 1;      // 1: black(X), -1: white(O)
-	
-	let board = new chessBoard(board_size, current_player);
-	
-	// cout<<"=== Gomoku AI (MinMax + Alpha-Beta Pruning) ==="<<endl;
-	// cout<<"Player: X (Black), AI: O (White)"<<endl;
-	// cout<<"Search Depth: "<<search_depth<<endl<<endl;
-	
-	//board.printBoard();
-	
-	let input:[number, number] = [7, 7];
-	let input_x: number = input[0],
-        input_y: number = input[1];
-	let steps: number = 0;
-	
-	while(1){
-		steps++;
-		
-		if(board.current_player == 1){  // Player's turn
-			//cout<<endl<<" --- Player's Turn ---"<<endl;
-			//input = board.takeInput();
 
-            //read input
+@Injectable()
+export class GameService {
+  private games: Map<string, [chessBoard, number]> = new Map(); 
 
-			input_x = input[0];
-			input_y = input[1];
-			
-			// if(!board.placeAMove(input_x, input_y)){
-			// 	this_thread::sleep_for(chrono::milliseconds(1000));
-			// 	board.clearScreen();
-			// 	board.printBoard();
-			// 	continue;
-			// }
-			
-			if(!board.checkStatus(input_x, input_y)){
-				break;
+  // 创建游戏
+  createGame(): string {
+    const gameId = Math.random().toString(36).substring(2, 8);
+    this.games.set(gameId, [new chessBoard(15, 1), 0]); // 15x15, black goes first, steps = 0
+    return gameId;
+  }
+
+  // 玩家落子
+  handleMove(gameId: string, x: number, y: number) {
+    const game = this.games.get(gameId);
+    if (!game) return { "error": 'Game not found' };
+
+    if (!game[0].placeAMove(x, y)) {
+      return { "error": 'Invalid move' };
+    }
+	game[1] ++;
+	
+    const status = game[0].checkStatus(x, y);
+
+    if (game[0].current_player === -1) {
+		game[1]++;
+		if(game[1] === 2){
+			let dx: number = Math.random() < 0.5 ? 1 : -1; 
+			let dy: number = Math.random() < 0.5 ? 1 : -1; 
+			while(x-dx < 0 || y - dy < 0 || x + dx > 14 || y + dy > 14){ 
+				dx = Math.random() < 0.5 ? 1 : -1; 
+				dy = Math.random() < 0.5 ? 1 : -1; 
+			} 
+			game[0].placeAMove(x + dx, y + dy);
+		}else{
+			const aiMove = AIBestMove(game[0].getBoard(), game[0].current_player, 4);//search depth 4
+			if (aiMove[0] !== -1) {
+				game[0].placeAMove(aiMove[0], aiMove[1]);
 			}
-		}else{  // AI's turn
-			//cout<<endl<<"=== AI's Turn ==="<<endl;
-			if(steps==2){
-                const randomInt = () => Math.floor(Math.random() * 3) - 1;
-
-                let x = randomInt();
-                let y = randomInt();
-
-                while (x === 0 && y === 0) {
-                    y = randomInt();
-                }
-
-                board.placeAMove(input_x + x, input_y + y);
-			}else{
-				const startTime = Date.now();
-                const aiMove = AIBestMove(board.getBoard(), board.current_player, search_depth);
-                const endTime = Date.now();
-
-                const duration = endTime - startTime;
-
-                if (aiMove[0] === -1) {
-                    //console.log("No valid moves available!");
-                    break;
-                }
-
-                board.placeAMove(aiMove[0], aiMove[1]);
-                // console.log(`AI move: (${aiMove[0]}, ${aiMove[1]})`);
-                // console.log(`Thinking time: ${duration}ms`);
-
-                if (!board.checkStatus(aiMove[0], aiMove[1])) {
-                    break;
-                }
-			}
-			
 		}
 		
-		// board.clearScreen();
-		// board.printBoard();
-		// board.printParameters();
-		board.switchPlayer();
-	}
-	
-	return 0;
+    }
+    game[0].switchPlayer();
+    return { board: game[0].getBoard(), status };
+  }
 }
-main();
-@Injectable()
-export class GameService {}
+
+
+
+
+
+// function startGame(): number{
+// 	balence_coefficient = 1.1;	//smaller than 1, more offensive tendency; Larger than 1, more defensice tendency; default value: 1
+// 	const board_size: number = 15;
+// 	const search_depth: number = 4;  // Search depth, adjustable based on performance; default value: 3
+// 	let current_player: number = 1;      // 1: black(X), -1: white(O)
+// 	let board = new chessBoard(board_size, current_player);
+// 	// cout<<"=== Gomoku AI (MinMax + Alpha-Beta Pruning) ==="<<endl;
+// 	// cout<<"Player: X (Black), AI: O (White)"<<endl;
+// 	// cout<<"Search Depth: "<<search_depth<<endl<<endl;
+// 	//board.printBoard();
+// 	let input:[number, number] = [7, 7];
+// 	let input_x: number = input[0],
+//         input_y: number = input[1];
+// 	let steps: number = 0;
+// 	while(1){
+// 		steps++;
+// 		if(board.current_player == 1){  // Player's turn
+// 			//cout<<endl<<" --- Player's Turn ---"<<endl;
+// 			//input = board.takeInput();
+//             //read input
+// 			input_x = input[0];
+// 			input_y = input[1];
+// 			// if(!board.placeAMove(input_x, input_y)){
+// 			// 	this_thread::sleep_for(chrono::milliseconds(1000));
+// 			// 	board.clearScreen();
+// 			// 	board.printBoard();
+// 			// 	continue;
+// 			// }
+// 			if(!board.checkStatus(input_x, input_y)){
+// 				break;
+// 			}
+// 		}else{  // AI's turn
+// 			//cout<<endl<<"=== AI's Turn ==="<<endl;
+// 			if(steps==2){
+//                 const randomInt = () => Math.floor(Math.random() * 3) - 1;
+//                 let x = randomInt();
+//                 let y = randomInt();
+//                 while (x === 0 && y === 0) {
+//                     y = randomInt();
+//                 }
+//                 board.placeAMove(input_x + x, input_y + y);
+// 			}else{
+// 				const startTime = Date.now();
+//                 const aiMove = AIBestMove(board.getBoard(), board.current_player, search_depth);
+//                 const endTime = Date.now();
+//                 const duration = endTime - startTime;
+//                 if (aiMove[0] === -1) {
+//                     //console.log("No valid moves available!");
+//                     break;
+//                 }
+//                 board.placeAMove(aiMove[0], aiMove[1]);
+//                 // console.log(`AI move: (${aiMove[0]}, ${aiMove[1]})`);
+//                 // console.log(`Thinking time: ${duration}ms`);
+//                 if (!board.checkStatus(aiMove[0], aiMove[1])) {
+//                     break;
+//                 }
+// 			}
+// 		}
+// 		// board.clearScreen();
+// 		// board.printBoard();
+// 		// board.printParameters();
+// 		board.switchPlayer();
+// 	}
+// 	return 0;
+// }
