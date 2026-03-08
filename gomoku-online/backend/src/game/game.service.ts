@@ -87,6 +87,8 @@ class Node{
 	public board: Array<Array<number>>;
 	public current_player: number;
 	public size: number = 15;
+	public lastX: number;
+	public lastY: number;
 	public direction: number[][] = [
 		[1,0],
 		[0,1],
@@ -98,40 +100,75 @@ class Node{
             || y >= this.size) ? false : true;
     }
 
-	constructor(b: Array<Array<number>>, cp: number){
+	constructor(b: Array<Array<number>>, cp: number, lastX: number, lastY: number){
         this.current_player = cp;
         this.board = b.map(row => [...row]);
+		this.lastX = lastX;
+		this.lastY = lastY;
     }
-    GameOver(cp: number): boolean{
-		for(let p: number = 0; p < this.size; p++){
-			for(let q: number = 0; q < this.size; q++){
-				if(this.board[p][q]!=cp) continue;
-				let x: number = p, y: number = q;
-				for(let dir: number = 0; dir < 4; dir++){
-					let count: number = 1;
-					let dx: number = this.direction[dir][0];
-					let dy: number = this.direction[dir][1];
-					let i: number = x+dx, 
-                        j: number = y+dy;
-					while(this.checkBoundary(i,j) && this.board[i][j] == cp){
-						i += dx;
-						j += dy;
-						count++;
-					}
-					i = x - dx;
-					j = y - dy;
-					while(this.checkBoundary(i,j) && this.board[i][j] == cp){
-						i -= dx;
-						j -= dy;
-						count++;
-					}
-					if(count >= 5){
-						return true;
-					}
-				}
+    GameOver(cp: number, x: number, y: number): boolean{
+		if (x === -1) return false;
+
+		for (let dir = 0; dir < 4; dir++) {
+
+			let dx = this.direction[dir][0];
+			let dy = this.direction[dir][1];
+
+			let count = 1;
+
+			let i = x + dx;
+			let j = y + dy;
+
+			while (this.checkBoundary(i,j) && this.board[i][j] === cp) {
+				count++;
+				i += dx;
+				j += dy;
+			}
+
+			i = x - dx;
+			j = y - dy;
+
+			while (this.checkBoundary(i,j) && this.board[i][j] === cp) {
+				count++;
+				i -= dx;
+				j -= dy;
+			}
+
+			if (count >= 5) {
+				return true;
 			}
 		}
+
 		return false;
+		// for(let p: number = 0; p < this.size; p++){
+		// 	for(let q: number = 0; q < this.size; q++){
+		// 		if(this.board[p][q]!=cp) continue;
+		// 		let x: number = p, y: number = q;
+		// 		for(let dir: number = 0; dir < 4; dir++){
+		// 			let count: number = 1;
+		// 			let dx: number = this.direction[dir][0];
+		// 			let dy: number = this.direction[dir][1];
+		// 			let i: number = x+dx, 
+        //                 j: number = y+dy;
+		// 			while(this.checkBoundary(i,j) && this.board[i][j] == cp){
+		// 				i += dx;
+		// 				j += dy;
+		// 				count++;
+		// 			}
+		// 			i = x - dx;
+		// 			j = y - dy;
+		// 			while(this.checkBoundary(i,j) && this.board[i][j] == cp){
+		// 				i -= dx;
+		// 				j -= dy;
+		// 				count++;
+		// 			}
+		// 			if(count >= 5){
+		// 				return true;
+		// 			}
+		// 		}
+		// 	}
+		// }
+		// return false;
 	}
 	
 	getValidMoves(): Array<[number, number]>{
@@ -170,11 +207,11 @@ class Node{
 		return moves;
 	}
 	
-	evaluateBoard(evaluate_player: number): number{
-		if(this.GameOver(evaluate_player)){
+	evaluateBoard(evaluate_player: number, x: number, y: number): number{
+		if(this.GameOver(evaluate_player, x, y)){
 			return 100000;
 		}
-		if(this.GameOver(-evaluate_player)){
+		if(this.GameOver(-evaluate_player, x, y)){
 			return -100000;
 		}
 		
@@ -387,8 +424,8 @@ class Node{
 // MinMax algorithm + Alpha-Beta pruning
 function alphaBetaMinMax(node: Node, depth: number, alpha: number, beta: number, maximizing_player: boolean, ai_player: number): number{
 	// Termination conditions
-	if(depth==0 || node.GameOver(ai_player) || node.GameOver(-ai_player)){
-		return node.evaluateBoard(ai_player);
+	if(depth==0 || node.GameOver(ai_player, node.lastX, node.lastY) || node.GameOver(-ai_player, node.lastX, node.lastY)){
+		return node.evaluateBoard(ai_player, node.lastX, node.lastY);
 	}
 	
 	let valid_moves: Array<[number, number]> = node.getValidMoves();
@@ -400,7 +437,7 @@ function alphaBetaMinMax(node: Node, depth: number, alpha: number, beta: number,
                 y: number = move[1];
 			// Simulate move
 			node.board[x][y] = node.current_player;
-			let child_node = new Node(node.board, -node.current_player);
+			let child_node = new Node(node.board, -node.current_player, x, y);
 			
 			let evaluate: number = alphaBetaMinMax(child_node, depth-1, alpha, beta, false, ai_player);
 			
@@ -423,7 +460,7 @@ function alphaBetaMinMax(node: Node, depth: number, alpha: number, beta: number,
                 y: number = move[1];
 			// Simulate move
 			node.board[x][y] = node.current_player;
-			let child_node = new Node(node.board, -node.current_player);
+			let child_node = new Node(node.board, -node.current_player, x, y);
 			
 			let evaluate: number = alphaBetaMinMax(child_node, depth-1, alpha, beta, true, ai_player);
 			
@@ -442,7 +479,7 @@ function alphaBetaMinMax(node: Node, depth: number, alpha: number, beta: number,
 	}
 }
 function AIBestMove(board: Array<Array<number>>, current_player: number, search_depth: number): [number, number]{
-	let node = new Node(board, current_player);
+	let node = new Node(board, current_player, -1, -1);
 	let valid_moves: Array<[number, number]> = node.getValidMoves();
 	
 	let best_score: number = INT_MIN;
@@ -455,7 +492,7 @@ function AIBestMove(board: Array<Array<number>>, current_player: number, search_
             y = move[1];
 		// Simulate move
 		node.board[x][y] = current_player;
-		let child_node = new Node(node.board, -current_player);
+		let child_node = new Node(node.board, -current_player, x, y);
 		
 		// Use MinMax algorithm with Alpha-Beta pruning
 		let score = alphaBetaMinMax(child_node, search_depth-1, INT_MIN, INT_MAX, false, current_player);

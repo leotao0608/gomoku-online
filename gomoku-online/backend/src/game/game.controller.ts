@@ -18,5 +18,4 @@ export class GameController {
   create() {
     return { gameId: this.gameService.createGame() };
   }
-    
 }

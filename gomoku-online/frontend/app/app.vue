@@ -40,6 +40,7 @@ onMounted(async () => {
   }
 });
 const size = 15;
+let AIthinking = ref(false);
 let board = reactive(
   Array.from({ length: size }, () =>
     Array(size).fill(0)
@@ -57,8 +58,8 @@ async function playerMove(x, y) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ gameId: gameId.value, x, y })
     });
-
     if (!response.ok) {
+      AIthinking.value = false;
       alert(`Server error: ${response.status}`);
       return;
     }
@@ -66,6 +67,7 @@ async function playerMove(x, y) {
     const data = await response.json();
 
     if (data.error) {
+      AIthinking.value = false;
       alert(data.error);
       return;
     }
@@ -74,20 +76,23 @@ async function playerMove(x, y) {
       data.board.forEach((row, i) => {
         board[i] = row;
       });
+      AIthinking.value = false;
     }
 
     if (data.message) {
       alert(data.message);
     }
   } catch (err) {
+    AIthinking.value = false;
     alert(`Error: ${err.message}`);
   }
 }
 
 
 function handleClick(i, j){
-  if(board[i][j] === 0){
+  if(board[i][j] === 0 && !AIthinking.value){
     playerMove(i, j);
+    AIthinking.value = true;
   }
 }
 </script>
